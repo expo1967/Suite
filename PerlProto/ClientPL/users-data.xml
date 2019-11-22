@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RESPONSE>
+	<status_code>0</status_code>
+	<error_message>SUCCESS</error_message>
+	<error_details></error_details>
+<USER>
+<mod_date>2019-10-24</mod_date>
+<username>luke</username>
+<password>masteryoda</password>
+<first_name>luke</first_name>
+<last_name>skywalker</last_name>
+<email>luke@force.com</email>
+<phone>205-6666666</phone>
+<priv_level>1</priv_level>
+<balance1>2000000</balance1>
+<balance>2000000</balance>
+<status>active</status>
+<comment></comment>
+</USER>
+<USER>
+<mod_date>2019-10-24</mod_date>
+<username>doug</username>
+<password>sierra</password>
+<first_name>doug</first_name>
+<last_name>kimelman</last_name>
+<email>dk123@wpg.ca</email>
+<phone>204-9999999</phone>
+<priv_level>1</priv_level>
+<balance1>2000000</balance1>
+<balance>2001000</balance>
+<status>active</status>
+<comment></comment>
+</USER>
+<USER>
+<mod_date>2019-10-24</mod_date>
+<username>barry</username>
+<password>cookies</password>
+<first_name>barry</first_name>
+<last_name>kimelman</last_name>
+<email>bk@stuff.com</email>
+<phone>204-1234567</phone>
+<priv_level>0</priv_level>
+<balance1>2000000</balance1>
+<balance>1999000</balance>
+<status>active</status>
+<comment></comment>
+</USER>
+</RESPONSE>
