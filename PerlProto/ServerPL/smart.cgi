@@ -117,9 +117,11 @@ sub send_response
 {
 	print qq~
 <RESPONSE>
+<STATUS>
 	<status_code>${status1{'status_code'}}</status_code>
 	<error_message>${status1{'error_message'}}</error_message>
 	<error_details>${status1{'error_details'}}</error_details>
+</STATUS>
 ~;
 	if ( $response_data ne "" ) {
 		print "$response_data\n";
