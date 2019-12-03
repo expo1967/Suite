@@ -198,7 +198,7 @@ sub debug_print
 sub send_request_to_server
 {
 	my ( $parms_data ) = @_;
-	my ( $url , $status , $ua );
+	my ( $url , $status , $ua , $ref_status );
 
 	$url = $url_part_1 . $parms_data;
 	debug_print("Send the following request\n$url\n");
@@ -229,11 +229,12 @@ sub send_request_to_server
 	} # UNLESS
 	debug_print("Parsed XML data from server is:\n",Dumper($server_xml_data));
 
-	$status = $server_xml_data->{"status_code"};
+	$ref_status = $server_xml_data->{"STATUS"};
+	$status = $ref_status->{"status_code"};
 	if ( $status ) {
 		warn("Command failed with status code $status\n");
-		print "$server_xml_data->{'error_message'}\n";
-		print "$server_xml_data->{'error_details'}\n";
+		print "$ref_status->{'error_message'}\n";
+		print "$ref_status->{'error_details'}\n";
 		die("\nGoodbye ...\n");
 	} # IF
 
