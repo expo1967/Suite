@@ -29,6 +29,7 @@ namespace ConsoleApplication1 {
 		static char[] SplitChars1 = new char[]{'&'} ;
 		static char[] SplitChars2 = new char[]{'='} ;
 		static int num_vars;
+		static int total_balance;
 		static string[] input_fields;
 		static Dictionary<string, string> data_fields = new Dictionary<string, string>();
 		static SmartUser current_user;
@@ -164,6 +165,7 @@ namespace ConsoleApplication1 {
 					int priv_level = rdr.GetInt32(8);
 					int balance1 = rdr.GetInt32(9);
 					int balance = rdr.GetInt32(10);
+					total_balance += balance;
 					string status = rdr.GetString(11);
 					string comment = rdr.GetString(12);
 					SmartUser new_u = new SmartUser() {
@@ -433,6 +435,50 @@ ORDER BY mod_date";
 
 //////////////////////////////////////////////////////////////////////
 //
+// Function  : cmd_admins
+//
+// Purpose   : process a "admins" command
+//
+// Inputs    : (none)
+//
+// Output    : appropriate info
+//
+// Returns   : nothing
+//
+// Example   : cmd_admins();
+//
+// Notes     : (none)
+//
+//////////////////////////////////////////////////////////////////////
+
+		static public void cmd_admins()
+		{
+			for ( int index = 0 ; index < UsersList.Count ; ++index ) {
+				if ( UsersList[index].priv_level == 0 ) {
+					response_data += "<USER>\n";
+					response_data += "<id>" + UsersList[index].id + "</id>\n";
+					response_data += "<username>" + UsersList[index].username + "</username>\n";
+					response_data += "<mod_date>" + UsersList[index].mod_date + "</mod_date>\n";
+					response_data += "<password>" + UsersList[index].password + "</password>\n";
+					response_data += "<first_name>" + UsersList[index].first_name + "</first_name>\n";
+					response_data += "<last_name>" + UsersList[index].last_name + "</last_name>\n";
+					response_data += "<email>" + UsersList[index].email + "</email>\n";
+					response_data += "<phone>" + UsersList[index].phone + "</phone>\n";
+					response_data += "<priv_level>" + UsersList[index].priv_level + "</priv_level>\n";
+					response_data += "<balance1>" + UsersList[index].balance1 + "</balance1>\n";
+					response_data += "<balance>" + UsersList[index].balance + "</balance>\n";
+					response_data += "<status>" + UsersList[index].status + "</status>\n";
+					response_data += "<comment>" + UsersList[index].comment + "</comment>\n";
+					response_data += "</USER>\n";
+				}
+			}
+			send_response(0,"SUCCESS","admins request was successfull");
+
+			return;
+		} // end of cmd_admins
+
+//////////////////////////////////////////////////////////////////////
+//
 // Function  : cmd_hist
 //
 // Purpose   : process a "hist" or "myhist" command
@@ -464,7 +510,7 @@ ORDER BY mod_date";
 					if ( func == "myhist" && current_user.id != TransList[index].user1 &&
 								current_user.id != TransList[index].user2 )
 						continue;
-					response_data += "<TRAN>\n";
+					response_data += "<TRANS>\n";
 					response_data += "<id>" + TransList[index].id + "</id>\n";
 					response_data += "<mod_date>" + TransList[index].mod_date + "</mod_date>\n";
 					response_data += "<user1>" + TransList[index].user1 + "</user1>\n";
@@ -476,7 +522,7 @@ ORDER BY mod_date";
 					response_data += "<amount>" + TransList[index].amount + "</amount>\n";
 					response_data += "<name1>" + TransList[index].name1 + "</name1>";
 					response_data += "<name2>" + TransList[index].name2 + "</name2>";
-					response_data += "</TRAN>\n";
+					response_data += "</TRANS>\n";
 				}
 			}
 			send_response(0,"SUCCESS","hist request was successfull");
@@ -568,8 +614,8 @@ ORDER BY mod_date";
 				new_balance = current_user.balance - amount;
 				new_balance2 = recipient.balance + amount;
 				sql = "INSERT INTO smart_users_history " +
-						"(mod_date,user1,user1_balance,user2,user2_balance,operation,status,amount) " +
-						"VALUES ( now() , " + current_user.id + " , " + new_balance +
+						"(mod_date,void_date,user1,user1_balance,user2,user2_balance,operation,status,amount) " +
+						"VALUES ( now() , now() , " + current_user.id + " , " + new_balance +
 						" , " + recipient.id + " , " + new_balance2 + " , 'send' , 'active' , " +
 						amount + ")";
 				cmd.CommandText = sql;
@@ -746,13 +792,18 @@ ORDER BY mod_date";
 		static public void cmd_deluser()
 		{
 			string sql;
+			string old_user;
 			MySqlConnection conn = null;
 
 			if ( !data_fields.ContainsKey("olduser") )
 				send_response(1,"Name of existing user was not specified","");
+			old_user = data_fields["olduser"];
+			if ( !user_index.ContainsKey(old_user) ) {
+				send_response(1,old_user + " is not a valid username","");
+			}
 
 			sql = "UPDATE smart_users SET status = 'expired' WHERE username = '" +
-						data_fields["olduser"] + "'";
+						old_user + "'";
 
 			try
 			{
@@ -776,7 +827,7 @@ ORDER BY mod_date";
 				}
 			}
 
-			send_response(0,"User was successfully marked as expired","");
+			send_response(0,old_user + " was successfully marked as expired","");
 			return;
 		} // end of cmd_deluser
 
@@ -843,6 +894,31 @@ ORDER BY mod_date";
 
 //////////////////////////////////////////////////////////////////////
 //
+// Function  : cmd_balance
+//
+// Purpose   : Process "balance" request
+//
+// Inputs    : (none)
+//
+// Output    : (none)
+//
+// Returns   : nothing
+//
+// Example   : cmd_balance();
+//
+// Notes     : (none)
+//
+//////////////////////////////////////////////////////////////////////
+
+		static public void cmd_balance()
+		{
+			response_data += "<BALANCE>" + total_balance + "</BALANCE>";
+			send_response(0,"Balance Successfull","");
+			return;
+		} // end of cmd_balance
+
+//////////////////////////////////////////////////////////////////////
+//
 // Function  : Main
 //
 // Purpose   : program entry point
@@ -872,6 +948,7 @@ ORDER BY mod_date";
 		cmd_priv_level.Add("adduser",true);
 		cmd_priv_level.Add("deluser",true);
 		cmd_priv_level.Add("void",true);
+		cmd_priv_level.Add("balance",true);
 		numeric_fields.Add("priv_level" , "privilege level");
 		numeric_fields.Add("balance1" , "initial balance");
 
@@ -901,7 +978,7 @@ ORDER BY mod_date";
 							cmd_users("users");
 							break;
 						case "admins":
-							cmd_users("admins");
+							cmd_admins();
 							break;
 						case "hist":
 							cmd_hist("hist");
@@ -920,6 +997,9 @@ ORDER BY mod_date";
 							break;
 						case "void":
 							cmd_void();
+							break;
+						case "balance":
+							cmd_balance();
 							break;
 						default:
 							send_response(1,"Unimplemented Command : ",function);
