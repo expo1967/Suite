@@ -36,6 +36,7 @@ require "comma_format.pl";
 my %options = ( "d" => 0 , "h" => 0 , "x" => 0 , "p" => "more" );
 ##  my $url_part_1 = "http://localhost:88/cgi-bin/smart.cgi?";
 my $url_part_1 = "http://localhost:88/cgi-bin2/smart.cgi?";
+##  my $url_part_1 = "http://localhost:88/cgi-bin/funds2-server.exe?";
 my $server_response;
 my $server_decoded_data;
 my @server_decoded_lines;
@@ -64,7 +65,7 @@ my @user_columns_labels = (
 
 my @transaction_columns = (
 	"mod_date" , "user1" , "user1_balance" , "user2" , "user2_balance" ,
-	"operation" , "status" , "amount"
+	"operation" , "status" , "amount" , "void_date"
 );
 
 my $help_show_users =<<HELP_SHOW_USERS;
@@ -323,32 +324,29 @@ sub read_password
 
 sub show_users
 {
-	my ( $parms , $status , $ref , $ref_users , $index , @users_info );
-	my ( $index2 , $maxlen , $value , $total_balance );
+	my ( $parms , $status , $ref , $ref_users , $index , $id );
+	my ( $index2 , $maxlen , $value , $total_balance , @ids );
 
 	$parms = "function=$function&username=$username&password=$password";
 	$status = send_request_to_server($parms);
 	$ref_users = $server_xml_data->{"USER"};
+# ref_users should be a reference to a hash where the key is the userid and
+# the value is a hash containing the user information fields
+
+	@ids = sort { $a <=> $b } keys %$ref_users;
 	debug_print("users info from server is :\n",Dumper($ref_users));
-	$ref = ref $ref_users;
-	if ( $ref eq "ARRAY" ) {
-		@users_info = @$ref_users;
-	} # IF
-	else {
-		@users_info = ( $ref_users );
-	} # ELSE
 	unless ( open(PIPE,"|$options{'p'}") ) {
 		die("open of pipe to '$options{'p'}' failed : $!\n");
 	} # UNLESS
 
 	$total_balance = 0;
-	for ( $index = 0 ; $index <= $#users_info ; ++$index ) {
+	for ( $index = 0 ; $index <= $#ids ; ++$index ) {
 		print PIPE "\n";
-		$ref = $users_info[$index];
+		$id = $ids[$index];
+		$ref = $ref_users->{$id};
 		$total_balance += $ref->{"balance"};
 		$maxlen = (reverse sort { $a <=> $b} map { length $_ } @user_columns_labels)[0];
-		$value = $ref->{"userid"};
-		printf PIPE "%-${maxlen}.${maxlen}s : %s\n","Userid",$value;
+		printf PIPE "%-${maxlen}.${maxlen}s : %s\n","Userid",$id;
 		for ( $index2 = 0 ; $index2 <= $#user_columns ; ++$index2 ) {
 			$value = $ref->{$user_columns[$index2]};
 			if ( $user_columns[$index2] =~ m/balance/i ) {
@@ -390,7 +388,7 @@ sub show_hist
 	my ( $parms , $status , $ref , $ref_trans , $index , $index2 , @ids );
 	my ( $maxlen , $value , $column , $num_trans , %hash , %hash2 , $id );
 	my ( @dates , @user1 , @user1_balance , @user2 , @user2_balance );
-	my ( @operation , @status , @amount , @arrays , @headers );
+	my ( @operation , @status , @amount , @arrays , @headers , @void_dates );
 
 	$parms = "function=$function&username=$username&password=$password";
 	$status = send_request_to_server($parms);
@@ -415,7 +413,7 @@ sub show_hist
 	unless ( open(PIPE,"|$options{'p'}") ) {
 		die("open of pipe to '$options{'p'}' failed : $!\n");
 	} # UNLESS
-	print PIPE "NUmber of transactions = $num_trans\n\n";
+	print PIPE "Number of transactions = $num_trans\n\n";
 
 	@dates = ();
 	@user1 = ();
@@ -425,6 +423,7 @@ sub show_hist
 	@operation = ();
 	@status = ();
 	@amount = ();
+	@void_dates = ();
 	$maxlen = (reverse sort { $a <=> $b} map { length $_ } @transaction_columns)[0];
 	@ids = keys %hash2;
 
@@ -439,11 +438,12 @@ sub show_hist
 		push @operation,$ref->{'operation'};
 		push @amount,format_dollars($ref->{'amount'});
 		push @status,$ref->{'status'};
+		push @void_dates,$ref->{'void_date'};
 	} # FOR
 	@headers = ( "Id" , "Date" , "User 1" , "User 1 Balance", "User 2" , "User 2 Balance" ,
-					"Operation" , "Status" , "Amount" );
+					"Operation" , "Status" , "Amount" , "Void Date" );
 	@arrays = ( \@ids , \@dates , \@user1 , \@user1_balance , \@user2 , \@user2_balance ,
-					\@operation , \@status , \@amount );
+					\@operation , \@status , \@amount , \@void_dates );
 	print_lists( \@arrays , \@headers , '=' , \*PIPE);
 	close PIPE;
 
@@ -470,7 +470,7 @@ sub show_hist
 
 sub send_money
 {
-	my ( $status , $parms );
+	my ( $status , $parms , $ref );
 
 	unless ( 2 == scalar @ARGV ) {
 		print "Usage : $script_name myname mypassword send username amount\n";
@@ -479,8 +479,9 @@ sub send_money
 		$parms = "function=$function&username=$username&password=$password&username2=$ARGV[0]&amount=$ARGV[1]";
 		$status = send_request_to_server($parms);
 	} # ELSE
-	print "$server_xml_data->{'error_message'}\n";
-	print "$server_xml_data->{'error_details'}\n";
+	$ref = $server_xml_data->{"STATUS"};
+	print "$ref->{'error_message'}\n";
+	print "$ref->{'error_details'}\n";
 
 	return 0;
 } # end of send_money
@@ -570,7 +571,7 @@ sub help
 
 sub adduser
 {
-	my ( $value , $ref_field , $data_type , $buffer , $parms , $status );
+	my ( $value , $ref_field , $data_type , $buffer , $parms , $status , $ref );
 
 	foreach my $fieldname ( @fields_order ) {
 		$ref_field = $input_fields{$fieldname};
@@ -621,8 +622,9 @@ sub adduser
 	} # FOREACH
 
 	$status = send_request_to_server($parms);
-	print "$server_xml_data->{'error_message'}\n";
-	print "$server_xml_data->{'error_details'}\n";
+	$ref = $server_xml_data->{"STATUS"};
+	print "$ref->{'error_message'}\n";
+	print "$ref->{'error_details'}\n";
 
 	return 0;
 } # end of adduser
@@ -648,7 +650,7 @@ sub adduser
 sub moduser
 {
 	my ( $parms , $status , $old_user , $ref_field , $data_type , $value , $buffer );
-	my ( $count , $modified , $title );
+	my ( $count , $modified , $title , $ref );
 
 	if ( 0 == scalar @ARGV ) {
 		print "Usage : $script_name myname mypassword moduser old_user\n";
@@ -657,8 +659,9 @@ sub moduser
 	$old_user = $ARGV[0];
 	$parms = "function=get_user&username=$username&password=$password&old_user=$old_user";
 	$status = send_request_to_server($parms);
-	print "$server_xml_data->{'error_message'}\n";
-	print "$server_xml_data->{'error_details'}\n";
+	$ref = $server_xml_data->{"STATUS"};
+	print "$ref->{'error_message'}\n";
+	print "$ref->{'error_details'}\n";
 	$parms = "function=modify_user&username=$username&password=$password&old_user=$old_user";
 
 	print qq~
@@ -711,8 +714,9 @@ just press the <Enter> key.
 	if ( $count ) {
 		print "$parms\n";
 		$status = send_request_to_server($parms);
-		print "$server_xml_data->{'error_message'}\n";
-		print "$server_xml_data->{'error_details'}\n";
+		$ref = $server_xml_data->{"STATUS"};
+		print "$ref->{'error_message'}\n";
+		print "$ref->{'error_details'}\n";
 	} # IF
 
 	return 0;
@@ -738,7 +742,7 @@ just press the <Enter> key.
 
 sub void_trans
 {
-	my ( $status , $parms , $id );
+	my ( $status , $parms , $id , $ref );
 
 	if ( 0 == scalar @ARGV ) {
 		print "Usage : $script_name myname mypassword void transaction_id\n";
@@ -747,8 +751,9 @@ sub void_trans
 		$id = $ARGV[0];
 		$parms = "function=void&username=$username&password=$password&trans_id=$id";
 		$status = send_request_to_server($parms);
-		print "$server_xml_data->{'error_message'}\n";
-		print "$server_xml_data->{'error_details'}\n";
+		$ref = $server_xml_data->{"STATUS"};
+		print "$ref->{'error_message'}\n";
+		print "$ref->{'error_details'}\n";
 	} # ELSE
 
 	return 0;
