@@ -29,7 +29,7 @@ namespace ConsoleApp1
 {
 	class Program
 	{
-		static bool debug_mode = false;
+		static bool debug_mode = true;
 		static string url_part_1 = "http://localhost:88/cgi-bin/funds2-server.exe";
 		static string username = "";
 		static string password = "";
